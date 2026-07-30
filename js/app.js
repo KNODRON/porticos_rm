@@ -190,9 +190,27 @@ function cargarFiltroAutopistas() {
 
 map.on('click', e => {
   layerConsulta.clearLayers();
-  if (marcadorConsulta) map.removeLayer(marcadorConsulta);
-  marcadorConsulta = L.circleMarker(e.latlng, { radius: 8, color: '#fff', fillColor: '#e85d04', fillOpacity: 1, weight: 3 }).addTo(map);
-  renderResultados(visibles, e.latlng);
+
+  if (marcadorConsulta) {
+    map.removeLayer(marcadorConsulta);
+  }
+
+  marcadorConsulta = L.circleMarker(e.latlng, {
+    radius: 8,
+    color: '#ffffff',
+    fillColor: '#e85d04',
+    fillOpacity: 1,
+    weight: 3
+  }).addTo(map);
+
+  const RADIO_BUSQUEDA_KM = 3;
+
+  const cercanos = visibles.filter(f => {
+    const distancia = distanciaKm(e.latlng, coords(f));
+    return distancia <= RADIO_BUSQUEDA_KM;
+  });
+
+  renderResultados(cercanos, e.latlng);
 });
 
 map.on(L.Draw.Event.CREATED, e => {
