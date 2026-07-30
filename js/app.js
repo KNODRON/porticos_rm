@@ -18,6 +18,7 @@ let features = [];
 let visibles = [];
 let seleccionados = [];
 let marcadorConsulta = null;
+let ignorarClicMapa = false;
 
 const drawControl = new L.Control.Draw({
   position: 'topleft',
@@ -154,11 +155,28 @@ function renderResultados(lista, puntoReferencia = null) {
 function seleccionarPorCapa(layer) {
   const lista = visibles.filter(f => {
     const c = coords(f);
-    const ll = L.latLng(c.lat, c.lng);
-    if (layer instanceof L.Circle) return layer.getLatLng().distanceTo(ll) <= layer.getRadius();
-    if (layer instanceof L.Polygon || layer instanceof L.Rectangle) return puntoEnPoligono(ll, layer.getLatLngs()[0]);
+    const punto = L.latLng(c.lat, c.lng);
+
+    // CÍRCULO
+    if (layer instanceof L.Circle) {
+      const distanciaMetros = layer.getLatLng().distanceTo(punto);
+      return distanciaMetros <= layer.getRadius();
+    }
+
+    // RECTÁNGULO
+    if (layer instanceof L.Rectangle) {
+      return layer.getBounds().contains(punto);
+    }
+
+    // POLÍGONO
+    if (layer instanceof L.Polygon) {
+      const vertices = layer.getLatLngs()[0];
+      return puntoEnPoligono(punto, vertices);
+    }
+
     return false;
   });
+
   renderResultados(lista);
 }
 
@@ -189,6 +207,8 @@ function cargarFiltroAutopistas() {
 }
 
 map.on('click', e => {
+  if (ignorarClicMapa) return;
+
   layerConsulta.clearLayers();
 
   if (marcadorConsulta) {
@@ -206,17 +226,30 @@ map.on('click', e => {
   const RADIO_BUSQUEDA_KM = 3;
 
   const cercanos = visibles.filter(f => {
-    const distancia = distanciaKm(e.latlng, coords(f));
-    return distancia <= RADIO_BUSQUEDA_KM;
+    return distanciaKm(e.latlng, coords(f)) <= RADIO_BUSQUEDA_KM;
   });
 
   renderResultados(cercanos, e.latlng);
 });
 
 map.on(L.Draw.Event.CREATED, e => {
-  limpiarSeleccion();
+  // Evita que el mouseup del dibujo sea interpretado
+  // inmediatamente como un clic normal en el mapa.
+  ignorarClicMapa = true;
+
+  layerConsulta.clearLayers();
+
+  if (marcadorConsulta) {
+    map.removeLayer(marcadorConsulta);
+    marcadorConsulta = null;
+  }
+
   layerConsulta.addLayer(e.layer);
   seleccionarPorCapa(e.layer);
+
+  setTimeout(() => {
+    ignorarClicMapa = false;
+  }, 300);
 });
 
 document.getElementById('busqueda').addEventListener('input', () => { renderPuntos(); limpiarSeleccion(); });
